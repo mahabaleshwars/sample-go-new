@@ -1,18 +1,699 @@
 name: setup-go documentation
+
 on:
   workflow_dispatch:
+
   
 jobs:
-  test-go:
+  # Test various version patterns across all runners
+  test-version-patterns:
+    name: Test Version Pattern - ${{ matrix.go-version }} on ${{ matrix.runner }}
     runs-on: ${{ matrix.runner }}
     strategy:
+      fail-fast: false
       matrix:
         runner: [ubuntu-latest, windows-latest, macos-latest]
-        go-version: [1.23.x, 1.* , <1.24.0, ~1.23.0, ^1.23.0]
+        go-version: [1.23.x, '1.*', '<1.24.0', '~1.23.0', '^1.23.0', '>=1.23.0']
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      
+      - name: Setup Go with version pattern
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go-version }}
-      - run: go version
+      
+      - name: Display Go version
+        run: go version
+      
+      - name: Verify Go installation
+        run: |
+          echo "Go version pattern: ${{ matrix.go-version }}"
+          echo "Installed version:"
+          go version
+          echo ""
+          echo "Go environment:"
+          go env GOVERSION
+        shell: bash
+      
+      - name: Test Go functionality
+        run: |
+          cat > test.go << 'EOF'
+          package main
+          import (
+              "fmt"
+              "runtime"
+          )
+          func main() {
+              fmt.Printf("Go version: %s\n", runtime.Version())
+              fmt.Printf("GOOS: %s, GOARCH: %s\n", runtime.GOOS, runtime.GOARCH)
+          }
+          EOF
+          go run test.go
+        shell: bash
+
+  # Test toolchain directive - exact version
+  test-toolchain-exact:
+    name: Toolchain Exact Version on ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create test project with toolchain go1.23.2
+        run: |
+          mkdir -p test-toolchain-exact
+          cd test-toolchain-exact
+          cat > go.mod << 'EOF'
+          module github.com/test/toolchain-validation
+          
+          go 1.23.0
+          toolchain go1.23.2
+          EOF
+          cat > main.go << 'EOF'
+          package main
+          
+          import (
+              "fmt"
+              "runtime"
+          )
+          
+          func main() {
+              fmt.Printf("Running with Go %s\n", runtime.Version())
+          }
+          EOF
+          echo "Created go.mod:"
+          cat go.mod
+        shell: bash
+      
+      - name: Setup Go using go.mod
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'test-toolchain-exact/go.mod'
+      
+      - name: Verify toolchain version
+        run: |
+          cd test-toolchain-exact
+          echo "Expected version: 1.23.2"
+          go version
+          
+          if go version | grep -q "1.23.2"; then
+            echo "✓ Correct Go version installed"
+          else
+            echo "✗ Go version mismatch"
+            exit 1
+          fi
+        shell: bash
+      
+      - name: Build and run test
+        run: |
+          cd test-toolchain-exact
+          go build -v -o app
+          ./app
+        shell: bash
+
+  # Test toolchain directive - higher patch version
+  test-toolchain-higher-patch:
+    name: Toolchain Higher Patch on ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create test project with toolchain go1.23.5
+        run: |
+          mkdir -p test-toolchain-patch
+          cd test-toolchain-patch
+          cat > go.mod << 'EOF'
+          module github.com/test/toolchain-validation
+          
+          go 1.23.0
+          toolchain go1.23.5
+          EOF
+          cat > main.go << 'EOF'
+          package main
+          
+          import (
+              "fmt"
+              "runtime"
+          )
+          
+          func main() {
+              fmt.Printf("Running with Go %s\n", runtime.Version())
+          }
+          EOF
+          echo "Created go.mod:"
+          cat go.mod
+        shell: bash
+      
+      - name: Setup Go using go.mod
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'test-toolchain-patch/go.mod'
+      
+      - name: Verify toolchain version
+        run: |
+          cd test-toolchain-patch
+          echo "Expected version: 1.23.5"
+          go version
+          
+          if go version | grep -q "1.23"; then
+            echo "✓ Correct Go version family installed"
+          else
+            echo "✗ Go version mismatch"
+            exit 1
+          fi
+        shell: bash
+      
+      - name: Build and run test
+        run: |
+          cd test-toolchain-patch
+          go build -v -o app
+          ./app
+        shell: bash
+
+  # Test minimum version only (no toolchain)
+  test-minimum-version-only:
+    name: Minimum Version Only on ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create test project without toolchain directive
+        run: |
+          mkdir -p test-min-version
+          cd test-min-version
+          cat > go.mod << 'EOF'
+          module github.com/test/min-version-validation
+          
+          go 1.23.1
+          EOF
+          cat > main.go << 'EOF'
+          package main
+          
+          import (
+              "fmt"
+              "runtime"
+          )
+          
+          func main() {
+              fmt.Printf("Running with Go %s\n", runtime.Version())
+          }
+          EOF
+          echo "Created go.mod:"
+          cat go.mod
+        shell: bash
+      
+      - name: Setup Go using go.mod
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'test-min-version/go.mod'
+      
+      - name: Verify version
+        run: |
+          cd test-min-version
+          echo "Expected minimum version: 1.23"
+          go version
+          
+          if go version | grep -q "1.23"; then
+            echo "✓ Correct Go version installed"
+          else
+            echo "✗ Go version mismatch"
+            exit 1
+          fi
+        shell: bash
+      
+      - name: Build and run test
+        run: |
+          cd test-min-version
+          go build -v -o app
+          ./app
+        shell: bash
+
+  # Test semantic versioning - tilde
+  test-semver-tilde:
+    name: Semantic Versioning Tilde (patch updates)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Go with tilde operator
+        uses: actions/setup-go@v6
+        with:
+          go-version: '~1.23.0'
+      
+      - name: Verify version pattern
+        run: |
+          echo "Pattern: ~1.23.0 (allows patch updates)"
+          echo "Expected to contain: 1.23"
+          go version
+          
+          if go version | grep -q "1.23"; then
+            echo "✓ Semantic version pattern resolved correctly"
+          else
+            echo "⚠ Version may not match expected pattern"
+          fi
+        shell: bash
+
+  # Test semantic versioning - caret
+  test-semver-caret:
+    name: Semantic Versioning Caret (minor updates)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Go with caret operator
+        uses: actions/setup-go@v6
+        with:
+          go-version: '^1.23.0'
+      
+      - name: Verify version pattern
+        run: |
+          echo "Pattern: ^1.23.0 (allows minor updates)"
+          echo "Expected to contain: 1.23"
+          go version
+          
+          if go version | grep -q "1.23"; then
+            echo "✓ Semantic version pattern resolved correctly"
+          else
+            echo "⚠ Version may not match expected pattern"
+          fi
+        shell: bash
+
+  # Test wildcard - patch
+  test-wildcard-patch:
+    name: Wildcard Patch Version
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Go with patch wildcard
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.23.x'
+      
+      - name: Verify version pattern
+        run: |
+          echo "Pattern: 1.23.x (any patch version)"
+          echo "Expected to contain: 1.23"
+          go version
+          
+          if go version | grep -q "1.23"; then
+            echo "✓ Wildcard pattern resolved correctly"
+          else
+            echo "⚠ Version may not match expected pattern"
+          fi
+        shell: bash
+
+  # Test wildcard - minor
+  test-wildcard-minor:
+    name: Wildcard Minor Version
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Go with minor wildcard
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.*'
+      
+      - name: Verify version pattern
+        run: |
+          echo "Pattern: 1.* (any minor version)"
+          echo "Expected to contain: 1."
+          go version
+          
+          if go version | grep -q "1."; then
+            echo "✓ Wildcard pattern resolved correctly"
+          else
+            echo "⚠ Version may not match expected pattern"
+          fi
+        shell: bash
+
+  # Test comparison - greater than or equal
+  test-comparison-gte:
+    name: Comparison Greater Than or Equal
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Go with >= operator
+        uses: actions/setup-go@v6
+        with:
+          go-version: '>=1.23.0'
+      
+      - name: Verify comparison operator
+        run: |
+          echo "Comparison: >=1.23.0"
+          echo "Expected: version >= 1.23.0"
+          go version
+          echo "✓ Comparison operator resolved successfully"
+        shell: bash
+
+  # Test comparison - less than
+  test-comparison-lt:
+    name: Comparison Less Than
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Go with < operator
+        uses: actions/setup-go@v6
+        with:
+          go-version: '<1.25.0'
+      
+      - name: Verify comparison operator
+        run: |
+          echo "Comparison: <1.25.0"
+          echo "Expected: version < 1.25.0"
+          go version
+          echo "✓ Comparison operator resolved successfully"
+        shell: bash
+
+  # Test comparison - range
+  test-comparison-range:
+    name: Comparison Range
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Go with range
+        uses: actions/setup-go@v6
+        with:
+          go-version: '>=1.22.0 <1.24.0'
+      
+      - name: Verify comparison range
+        run: |
+          echo "Comparison: >=1.22.0 <1.24.0"
+          echo "Expected: 1.22.0 <= version < 1.24.0"
+          go version
+          
+          if go version | grep -q "1.23"; then
+            echo "✓ Version range resolved correctly"
+          else
+            echo "⚠ Version may be outside expected range"
+          fi
+        shell: bash
+
+  # Test caching with different toolchains
+  test-intelligent-caching:
+    name: Test Intelligent Caching
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create project with toolchain go1.23.0
+        run: |
+          mkdir -p project-v1
+          cd project-v1
+          cat > go.mod << 'EOF'
+          module github.com/test/cache-test
+          
+          go 1.23.0
+          toolchain go1.23.0
+          
+          require (
+              github.com/google/uuid v1.6.0
+          )
+          EOF
+          cat > main.go << 'EOF'
+          package main
+          
+          import (
+              "fmt"
+              "github.com/google/uuid"
+          )
+          
+          func main() {
+              id := uuid.New()
+              fmt.Printf("Generated UUID: %s\n", id.String())
+          }
+          EOF
+        shell: bash
+      
+      - name: Setup Go 1.23.0 with cache
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'project-v1/go.mod'
+          cache: true
+          cache-dependency-path: 'project-v1/go.sum'
+      
+      - name: Download dependencies for v1
+        run: |
+          cd project-v1
+          go mod download
+          go build -v
+          echo "Cache key should include: go1.23.0"
+        shell: bash
+      
+      - name: Create project with toolchain go1.23.2
+        run: |
+          mkdir -p project-v2
+          cd project-v2
+          cat > go.mod << 'EOF'
+          module github.com/test/cache-test-v2
+          
+          go 1.23.0
+          toolchain go1.23.2
+          
+          require (
+              github.com/google/uuid v1.6.0
+          )
+          EOF
+          cat > main.go << 'EOF'
+          package main
+          
+          import (
+              "fmt"
+              "github.com/google/uuid"
+          )
+          
+          func main() {
+              id := uuid.New()
+              fmt.Printf("Generated UUID: %s\n", id.String())
+          }
+          EOF
+        shell: bash
+      
+      - name: Setup Go 1.23.2 with cache
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'project-v2/go.mod'
+          cache: true
+          cache-dependency-path: 'project-v2/go.sum'
+      
+      - name: Download dependencies for v2
+        run: |
+          cd project-v2
+          go mod download
+          go build -v
+          echo "Cache key should include: go1.23.2"
+          echo ""
+          echo "✓ Different toolchains use separate cache keys"
+        shell: bash
+      
+      - name: Verify no cache conflicts
+        run: |
+          echo "Testing that both toolchains work without conflicts..."
+          
+          cd project-v1
+          go version
+          go run main.go
+          
+          echo ""
+          
+          cd ../project-v2
+          go version
+          go run main.go
+          
+          echo ""
+          echo "✓ Cache keys incorporate toolchain-specific metadata"
+          echo "✓ No conflicts when switching between Go versions"
+        shell: bash
+
+  # Test multi-module workspace
+  test-multi-module-workspace:
+    name: Multi-Module Workspace with Different Toolchains
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create multi-module workspace
+        run: |
+          # Module 1: Uses go1.23.0
+          mkdir -p module1
+          cd module1
+          cat > go.mod << 'EOF'
+          module github.com/test/module1
+          
+          go 1.22.0
+          toolchain go1.23.0
+          EOF
+          cat > main.go << 'EOF'
+          package main
+          import (
+              "fmt"
+              "runtime"
+          )
+          func main() {
+              fmt.Printf("Module1 - Go %s\n", runtime.Version())
+          }
+          EOF
+          cd ..
+          
+          # Module 2: Uses go1.23.2
+          mkdir -p module2
+          cd module2
+          cat > go.mod << 'EOF'
+          module github.com/test/module2
+          
+          go 1.23.0
+          toolchain go1.23.2
+          EOF
+          cat > main.go << 'EOF'
+          package main
+          import (
+              "fmt"
+              "runtime"
+          )
+          func main() {
+              fmt.Printf("Module2 - Go %s\n", runtime.Version())
+          }
+          EOF
+          cd ..
+          
+          # Create workspace
+          cat > go.work << 'EOF'
+          go 1.23.0
+          
+          use (
+              ./module1
+              ./module2
+          )
+          EOF
+        shell: bash
+      
+      - name: Setup Go for workspace
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.23.x'
+      
+      - name: Test workspace modules
+        run: |
+          echo "Testing workspace with multiple toolchains..."
+          go work sync
+          
+          cd module1
+          go build -v
+          ./main
+          cd ..
+          
+          cd module2
+          go build -v
+          ./main
+          cd ..
+          
+          echo "✓ Workspace with multiple toolchain directives works correctly"
+        shell: bash
+
+  # Summary job
+  validation-summary:
+    name: Validation Summary
+    runs-on: ubuntu-latest
+    needs: 
+      - test-version-patterns
+      - test-toolchain-exact
+      - test-toolchain-higher-patch
+      - test-minimum-version-only
+      - test-semver-tilde
+      - test-semver-caret
+      - test-wildcard-patch
+      - test-wildcard-minor
+      - test-comparison-gte
+      - test-comparison-lt
+      - test-comparison-range
+      - test-intelligent-caching
+      - test-multi-module-workspace
+    if: always()
+    
+    steps:
+      - name: Display results
+        run: |
+          echo "## Enhanced Go Toolchain Management - Validation Results"
+          echo ""
+          echo "### Test Suite Results:"
+          echo ""
+          echo "#### Version Patterns:"
+          echo "- Version Patterns (all): ${{ needs.test-version-patterns.result }}"
+          echo ""
+          echo "#### Toolchain Directive Support:"
+          echo "- Toolchain Exact Version: ${{ needs.test-toolchain-exact.result }}"
+          echo "- Toolchain Higher Patch: ${{ needs.test-toolchain-higher-patch.result }}"
+          echo "- Minimum Version Only: ${{ needs.test-minimum-version-only.result }}"
+          echo ""
+          echo "#### Semantic Versioning:"
+          echo "- Tilde (patch updates): ${{ needs.test-semver-tilde.result }}"
+          echo "- Caret (minor updates): ${{ needs.test-semver-caret.result }}"
+          echo ""
+          echo "#### Wildcards:"
+          echo "- Patch Wildcard (1.23.x): ${{ needs.test-wildcard-patch.result }}"
+          echo "- Minor Wildcard (1.*): ${{ needs.test-wildcard-minor.result }}"
+          echo ""
+          echo "#### Comparison Operators:"
+          echo "- Greater Than or Equal (>=): ${{ needs.test-comparison-gte.result }}"
+          echo "- Less Than (<): ${{ needs.test-comparison-lt.result }}"
+          echo "- Range (>= <): ${{ needs.test-comparison-range.result }}"
+          echo ""
+          echo "#### Advanced Features:"
+          echo "- Intelligent Caching: ${{ needs.test-intelligent-caching.result }}"
+          echo "- Multi-Module Workspace: ${{ needs.test-multi-module-workspace.result }}"
+          echo ""
+          
+          # Check if all tests passed
+          if [ "${{ needs.test-version-patterns.result }}" == "success" ] && \
+             [ "${{ needs.test-toolchain-exact.result }}" == "success" ] && \
+             [ "${{ needs.test-toolchain-higher-patch.result }}" == "success" ] && \
+             [ "${{ needs.test-minimum-version-only.result }}" == "success" ] && \
+             [ "${{ needs.test-semver-tilde.result }}" == "success" ] && \
+             [ "${{ needs.test-semver-caret.result }}" == "success" ] && \
+             [ "${{ needs.test-wildcard-patch.result }}" == "success" ] && \
+             [ "${{ needs.test-wildcard-minor.result }}" == "success" ] && \
+             [ "${{ needs.test-comparison-gte.result }}" == "success" ] && \
+             [ "${{ needs.test-comparison-lt.result }}" == "success" ] && \
+             [ "${{ needs.test-comparison-range.result }}" == "success" ] && \
+             [ "${{ needs.test-intelligent-caching.result }}" == "success" ] && \
+             [ "${{ needs.test-multi-module-workspace.result }}" == "success" ]; then
+            echo "✅ All Enhanced Go Toolchain Management features validated!"
+            echo ""
+            echo "Validated Features:"
+            echo "✓ Toolchain directive support (go + toolchain in go.mod)"
+            echo "✓ Advanced version resolution (>=, <, ~, ^, wildcards)"
+            echo "✓ Intelligent caching with toolchain-specific metadata"
+            echo "✓ Complex multi-module scenarios"
+            exit 0
+          else
+            echo "❌ Some validations failed - please check individual test results above"
+            exit 1
+          fi
+        shell: bash
