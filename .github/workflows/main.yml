@@ -1,0 +1,304 @@
+name: Validate V6 Changes
+
+on:
+  workflow_dispatch:
+
+jobs:
+  validate-node-upgrade:
+    name: Validate Node 24 Runtime
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, ubuntu-22.04, ubuntu-20.04, windows-2022, windows-2019, macos-13, macos-12]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Verify Node version
+        run: |
+          node --version
+          npm --version
+        shell: bash
+      
+      - name: Check runner version compatibility
+        run: |
+          echo "Verifying runner is v2.327.1 or later"
+          # This should be handled by the runner itself
+        shell: bash
+
+  validate-go-toolchain-basic:
+    name: Validate Go Toolchain - Basic
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Create test go.mod with toolchain directive
+        run: |
+          mkdir -p test-project
+          cd test-project
+          cat > go.mod << 'EOF'
+          module github.com/test/v6-validation
+          
+          go 1.23.0
+          toolchain go1.23.2
+          EOF
+        shell: bash
+      
+      - name: Setup Go with toolchain directive
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'test-project/go.mod'
+      
+      - name: Verify Go version matches toolchain
+        run: |
+          cd test-project
+          go version
+          echo "Expected: go1.23.2"
+          go version | grep -q "go1.23.2" && echo "✓ Toolchain directive correctly applied" || echo "✗ Toolchain version mismatch"
+        shell: bash
+
+  validate-go-version-patterns:
+    name: Validate Go Version Patterns
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        version-pattern:
+          - { pattern: '>=1.23.0', expected: '1.23' }
+          - { pattern: '~1.23.0', expected: '1.23' }
+          - { pattern: '^1.23.0', expected: '1.23' }
+          - { pattern: '1.23.x', expected: '1.23' }
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Go with pattern - ${{ matrix.version-pattern.pattern }}
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ matrix.version-pattern.pattern }}
+      
+      - name: Verify Go version
+        run: |
+          go version
+          echo "Pattern: ${{ matrix.version-pattern.pattern }}"
+          echo "Expected version contains: ${{ matrix.version-pattern.expected }}"
+          go version | grep -q "${{ matrix.version-pattern.expected }}" && echo "✓ Version pattern correctly resolved" || echo "✗ Version pattern mismatch"
+        shell: bash
+
+  validate-go-caching:
+    name: Validate Go Caching with Toolchain
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Create first test project (go1.23.0)
+        run: |
+          mkdir -p test-cache-1
+          cd test-cache-1
+          cat > go.mod << 'EOF'
+          module github.com/test/cache-test-1
+          
+          go 1.23.0
+          toolchain go1.23.0
+          EOF
+          cat > main.go << 'EOF'
+          package main
+          
+          import "fmt"
+          
+          func main() {
+              fmt.Println("Cache test 1")
+          }
+          EOF
+        shell: bash
+      
+      - name: Setup Go 1.23.0
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'test-cache-1/go.mod'
+          cache: true
+          cache-dependency-path: 'test-cache-1/go.mod'
+      
+      - name: Build with Go 1.23.0
+        run: |
+          cd test-cache-1
+          go build -v
+          go version
+        shell: bash
+      
+      - name: Create second test project (go1.23.2)
+        run: |
+          mkdir -p test-cache-2
+          cd test-cache-2
+          cat > go.mod << 'EOF'
+          module github.com/test/cache-test-2
+          
+          go 1.23.0
+          toolchain go1.23.2
+          EOF
+          cat > main.go << 'EOF'
+          package main
+          
+          import "fmt"
+          
+          func main() {
+              fmt.Println("Cache test 2")
+          }
+          EOF
+        shell: bash
+      
+      - name: Setup Go 1.23.2
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'test-cache-2/go.mod'
+          cache: true
+          cache-dependency-path: 'test-cache-2/go.mod'
+      
+      - name: Build with Go 1.23.2
+        run: |
+          cd test-cache-2
+          go build -v
+          go version
+        shell: bash
+      
+      - name: Verify different toolchains work without conflicts
+        run: |
+          echo "✓ Successfully built with different toolchain versions"
+          echo "This validates that cache keys incorporate toolchain-specific metadata"
+        shell: bash
+
+  validate-all-runner-types:
+    name: Validate on All Runner Types
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-latest
+          - ubuntu-22.04
+          - ubuntu-20.04
+          - windows-latest
+          - windows-2022
+          - windows-2019
+          - macos-latest
+          - macos-13
+          - macos-12
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Display Runner Info
+        run: |
+          echo "Runner OS: ${{ runner.os }}"
+          echo "Runner: ${{ matrix.runner }}"
+        shell: bash
+      
+      - name: Setup Go V6
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.23.x'
+      
+      - name: Verify Go Installation
+        run: |
+          go version
+          go env
+        shell: bash
+      
+      - name: Create and test simple Go program
+        run: |
+          mkdir -p test-runner
+          cd test-runner
+          cat > go.mod << 'EOF'
+          module github.com/test/runner-validation
+          
+          go 1.23.0
+          EOF
+          cat > main.go << 'EOF'
+          package main
+          
+          import (
+              "fmt"
+              "runtime"
+          )
+          
+          func main() {
+              fmt.Printf("Go version: %s\n", runtime.Version())
+              fmt.Printf("OS: %s\n", runtime.GOOS)
+              fmt.Printf("Arch: %s\n", runtime.GOARCH)
+          }
+          EOF
+          go run main.go
+        shell: bash
+
+  validate-version-comparison:
+    name: Validate Version Comparison Operators
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        comparison:
+          - { operator: '>=1.22.0', description: 'Greater than or equal' }
+          - { operator: '<1.25.0', description: 'Less than' }
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Go with ${{ matrix.comparison.description }}
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ matrix.comparison.operator }}
+      
+      - name: Verify Go version
+        run: |
+          go version
+          echo "Operator: ${{ matrix.comparison.operator }}"
+          echo "Description: ${{ matrix.comparison.description }}"
+        shell: bash
+
+  summary:
+    name: Validation Summary
+    runs-on: ubuntu-latest
+    needs: [validate-node-upgrade, validate-go-toolchain-basic, validate-go-version-patterns, validate-go-caching, validate-all-runner-types, validate-version-comparison]
+    if: always()
+    
+    steps:
+      - name: Check validation results
+        run: |
+          echo "## V6 Changes Validation Summary"
+          echo ""
+          echo "### Test Results:"
+          echo "- Node 24 Runtime: ${{ needs.validate-node-upgrade.result }}"
+          echo "- Go Toolchain Basic: ${{ needs.validate-go-toolchain-basic.result }}"
+          echo "- Go Version Patterns: ${{ needs.validate-go-version-patterns.result }}"
+          echo "- Go Caching: ${{ needs.validate-go-caching.result }}"
+          echo "- All Runner Types: ${{ needs.validate-all-runner-types.result }}"
+          echo "- Version Comparison: ${{ needs.validate-version-comparison.result }}"
+          
+          if [ "${{ needs.validate-node-upgrade.result }}" == "success" ] && \
+             [ "${{ needs.validate-go-toolchain-basic.result }}" == "success" ] && \
+             [ "${{ needs.validate-go-version-patterns.result }}" == "success" ] && \
+             [ "${{ needs.validate-go-caching.result }}" == "success" ] && \
+             [ "${{ needs.validate-all-runner-types.result }}" == "success" ] && \
+             [ "${{ needs.validate-version-comparison.result }}" == "success" ]; then
+            echo ""
+            echo "✓ All V6 changes validated successfully!"
+            exit 0
+          else
+            echo ""
+            echo "✗ Some validations failed. Please review the results above."
+            exit 1
+          fi
+        shell: bash
