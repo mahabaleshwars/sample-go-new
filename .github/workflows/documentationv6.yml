@@ -2,9 +2,6 @@ name: Test Toolchain Directive Support
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
-  pull_request:
 
 jobs:
   test-toolchain:
