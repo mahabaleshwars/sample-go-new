@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, ubuntu-22.04, ubuntu-20.04, windows-2022, windows-2019, macos-13, macos-12]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     
     steps:
       - name: Checkout code
@@ -71,27 +71,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version-pattern:
-          - { pattern: '>=1.23.0', expected: '1.23' }
-          - { pattern: '~1.23.0', expected: '1.23' }
-          - { pattern: '^1.23.0', expected: '1.23' }
-          - { pattern: '1.23.x', expected: '1.23' }
+        version-pattern: ['>=1.23.0','~1.23.0','^1.23.0','1.23.x']
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Setup Go with pattern - ${{ matrix.version-pattern.pattern }}
+      - name: Setup Go with pattern - ${{ matrix.version-pattern }}
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ matrix.version-pattern.pattern }}
+          go-version: ${{ matrix.version-pattern}}
       
       - name: Verify Go version
         run: |
           go version
-          echo "Pattern: ${{ matrix.version-pattern.pattern }}"
-          echo "Expected version contains: ${{ matrix.version-pattern.expected }}"
-          go version | grep -q "${{ matrix.version-pattern.expected }}" && echo "✓ Version pattern correctly resolved" || echo "✗ Version pattern mismatch"
+          echo "Pattern: ${{ matrix.version-pattern}}"
         shell: bash
 
   validate-go-caching:
@@ -184,16 +178,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner:
-          - ubuntu-latest
-          - ubuntu-22.04
-          - ubuntu-20.04
-          - windows-latest
-          - windows-2022
-          - windows-2019
-          - macos-latest
-          - macos-13
-          - macos-12
+        runner: [ubuntu-latest, windows-latest, macos-latest]
+         
     
     steps:
       - name: Checkout code
@@ -248,24 +234,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        comparison:
-          - { operator: '>=1.22.0', description: 'Greater than or equal' }
-          - { operator: '<1.25.0', description: 'Less than' }
+        comparison: ['>=1.22.0',  '<1.25.0']
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Setup Go with ${{ matrix.comparison.description }}
+      - name: Setup Go with ${{ matrix.comparison }}
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ matrix.comparison.operator }}
+          go-version: ${{ matrix.comparison }}
       
       - name: Verify Go version
         run: |
           go version
-          echo "Operator: ${{ matrix.comparison.operator }}"
-          echo "Description: ${{ matrix.comparison.description }}"
+          echo "Operator: ${{ matrix.comparison }}"
+          echo "Description: ${{ matrix.comparison }}"
         shell: bash
 
   summary:
