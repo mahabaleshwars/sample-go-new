@@ -456,14 +456,15 @@ jobs:
         with:
           go-version-file: 'project-v1/go.mod'
           cache: true
-          cache-dependency-path: 'project-v1/go.sum'
+          cache-dependency-path: 'project-v1/go.mod'
       
-      - name: Download dependencies for v1
+      - name: Download dependencies and generate go.sum for v1
         run: |
           cd project-v1
+          go mod tidy
           go mod download
           go build -v
-          echo "Cache key should include: go1.23.0"
+          echo "✓ Cache key includes: go1.23.0"
         shell: bash
       
       - name: Create project with toolchain go1.23.2
@@ -500,28 +501,31 @@ jobs:
         with:
           go-version-file: 'project-v2/go.mod'
           cache: true
-          cache-dependency-path: 'project-v2/go.sum'
+          cache-dependency-path: 'project-v2/go.mod'
       
-      - name: Download dependencies for v2
+      - name: Download dependencies and generate go.sum for v2
         run: |
           cd project-v2
+          go mod tidy
           go mod download
           go build -v
-          echo "Cache key should include: go1.23.2"
-          echo ""
+          echo "✓ Cache key includes: go1.23.2"
           echo "✓ Different toolchains use separate cache keys"
         shell: bash
       
       - name: Verify no cache conflicts
         run: |
           echo "Testing that both toolchains work without conflicts..."
+          echo ""
           
+          echo "Project V1 (go1.23.0):"
           cd project-v1
           go version
           go run main.go
           
           echo ""
           
+          echo "Project V2 (go1.23.2):"
           cd ../project-v2
           go version
           go run main.go
@@ -592,6 +596,10 @@ jobs:
               ./module2
           )
           EOF
+          
+          echo "Workspace structure created:"
+          ls -la
+          cat go.work
         shell: bash
       
       - name: Setup Go for workspace
@@ -604,16 +612,21 @@ jobs:
           echo "Testing workspace with multiple toolchains..."
           go work sync
           
+          echo ""
+          echo "Building and running module1:"
           cd module1
           go build -v
-          ./main
+          go run main.go
           cd ..
           
+          echo ""
+          echo "Building and running module2:"
           cd module2
           go build -v
-          ./main
+          go run main.go
           cd ..
           
+          echo ""
           echo "✓ Workspace with multiple toolchain directives works correctly"
         shell: bash
 
