@@ -1,0 +1,68 @@
+name: Test Toolchain Directive Support
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  test-toolchain:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create go.mod with toolchain directive
+        run: |
+          cat > go.mod << 'EOF'
+          module github.com/mahabaleshwars/test
+          
+          go 1.23.0
+          toolchain go1.23.2
+          EOF
+          
+          cat > main.go << 'EOF'
+          package main
+          
+          import (
+              "fmt"
+              "runtime"
+          )
+          
+          func main() {
+              fmt.Printf("Go Version: %s\n", runtime.Version())
+          }
+          EOF
+          
+          echo "go.mod created:"
+          cat go.mod
+        shell: bash
+      
+      - name: Setup Go with toolchain directive
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+      
+      - name: Verify toolchain version
+        run: |
+          echo "Expected: go1.23.2 (toolchain directive)"
+          echo "Actual:"
+          go version
+          
+          if go version | grep -q "go1.23.2"; then
+            echo "✅ Using toolchain go1.23.2"
+          else
+            echo "❌ Not using toolchain version"
+            exit 1
+          fi
+        shell: bash
+      
+      - name: Run test
+        run: go run main.go
+        shell: bash
