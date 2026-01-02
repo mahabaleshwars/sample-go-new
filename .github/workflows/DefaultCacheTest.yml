@@ -13,6 +13,6 @@ jobs:
     name: Test caching on ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: priyagupta108/setup-go@gomod-cache
         with:
           go-version: '1.23'
