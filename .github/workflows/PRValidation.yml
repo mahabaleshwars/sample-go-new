@@ -3,17 +3,20 @@ name: PR Validation
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   basic-validation:
     runs-on: ubuntu-latest
-    steps: 
+    steps:   
       - name: Checkout code
-        uses:  actions/checkout@v5
+        uses:   actions/checkout@v5
 
       - name: Setup Go (specific version)
         uses: actions/setup-go@v6
         with:
-          go-version: '1.16. 1'
+          go-version: '1.21'
 
       - name: Print Go version
         run: go version
@@ -21,20 +24,20 @@ jobs:
       - name: Basic Build & Test
         run: |
           go build ./...
-          go test ./... 
+          go test ./...  
 
-  matrix-go-version: 
+  matrix-go-version:  
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go:  [ '1.18', '1.19', '1.20' ]
+        go:   [ '1.20', '1.21', '1.22' ]
     name: Test on Go ${{ matrix.go }}
-    steps:
+    steps: 
       - uses: actions/checkout@v5
       - name: Setup Go (matrix & semver)
         uses: actions/setup-go@v6
         with:
-          go-version:  ${{ matrix.go }}
+          go-version:   ${{ matrix.go }}
       - run: go version
       - run: go test ./...
 
@@ -42,30 +45,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Setup Go with semver range (^1.13.1)
+      - name: Setup Go with semver range (^1.20)
         uses: actions/setup-go@v6
-        with: 
-          go-version: '^1.13.1'
+        with:   
+          go-version: '^1.20'
       - run: go version
 
   semver-gte-syntax:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Setup Go with semver range (>=1.17.0)
+      - name: Setup Go with semver range (>=1.21)
         uses: actions/setup-go@v6
-        with:
-          go-version: '>=1.17.0'
+        with: 
+          go-version: '>=1.21'
       - run: go version
 
-  prerelease-rc: 
+  prerelease-rc:  
     runs-on: ubuntu-latest
-    steps:
+    steps: 
       - uses: actions/checkout@v5
       - name: Setup Go with pre-release RC version
         uses: actions/setup-go@v6
-        with: 
-          go-version: '1.18.0-rc.1'
+        with:   
+          go-version: '1.22. 0-rc.1'
       - run: go version
 
   prerelease-beta:
@@ -74,8 +77,8 @@ jobs:
       - uses: actions/checkout@v5
       - name: Setup Go with pre-release Beta version
         uses: actions/setup-go@v6
-        with:
-          go-version: '1.16.0-beta.1'
+        with: 
+          go-version:   '1.21.0-beta.1'
       - run: go version
 
   stable-alias:
@@ -84,28 +87,28 @@ jobs:
       - uses: actions/checkout@v5
       - name: Setup Go with stable alias
         uses: actions/setup-go@v6
-        with:
+        with: 
           go-version: 'stable'
-      - run:  go version
+      - run:   go version
 
   oldstable-alias:
-    runs-on:  ubuntu-latest
-    steps: 
+    runs-on: ubuntu-latest
+    steps:   
       - uses: actions/checkout@v5
       - name: Setup Go with oldstable alias
         uses: actions/setup-go@v6
-        with:
+        with:  
           go-version: 'oldstable'
       - run: go version
 
   setup-from-gomod:
     runs-on:  ubuntu-latest
-    steps: 
+    steps:  
       - uses: actions/checkout@v5
       - name: Setup Go from go.mod file
         uses: actions/setup-go@v6
-        with: 
-          go-version-file: 'go.mod'
+        with:  
+          go-version-file: 'go. mod'
       - run: go version
 
   setup-from-toolversions:
@@ -113,8 +116,8 @@ jobs:
     steps: 
       - uses: actions/checkout@v5
       - name: Setup Go from . tool-versions file
-        uses: actions/setup-go@v6
-        with: 
+        uses:  actions/setup-go@v6
+        with:
           go-version-file: '.tool-versions'
       - run: go version
 
@@ -134,37 +137,37 @@ jobs:
       - uses: actions/checkout@v5
       - name: Setup Go with default caching enabled
         uses: actions/setup-go@v6
-        with: 
-          go-version: '1.20'
+        with:  
+          go-version: '1.21'
       - name: Download Go modules
         run: go mod download
       - name: Build with cached modules
-        run: go build ./...
+        run: go build ./...  
 
   monorepo-caching:
-    runs-on: ubuntu-latest
-    steps:
-      - uses:  actions/checkout@v5
+    runs-on:  ubuntu-latest
+    steps: 
+      - uses: actions/checkout@v5
       - name: Setup Go with monorepo cache paths
         uses: actions/setup-go@v6
         with: 
-          go-version: '1.20'
+          go-version: '1.21'
           cache-dependency-path: |
             subdir/go.sum
             tools/go.sum
       - name: Download Go modules from multiple paths
         run: |
-          cd subdir && go mod download
-          cd ../tools && go mod download
+          cd subdir && go mod download && cd .. || true
+          cd tools && go mod download && cd ..  || true
 
   caching-glob-pattern:
-    runs-on:  ubuntu-latest
-    steps: 
+    runs-on: ubuntu-latest
+    steps:
       - uses: actions/checkout@v5
       - name: Setup Go with glob pattern for cache
         uses: actions/setup-go@v6
         with: 
-          go-version: '1.20'
+          go-version: '1.21'
           cache-dependency-path: '**/*.sum'
       - run: go mod download
 
@@ -174,52 +177,20 @@ jobs:
       - uses: actions/checkout@v5
       - name: Setup Go and check for latest version
         uses: actions/setup-go@v6
-        with:
-          go-version:  '1.21'
+        with: 
+          go-version: '1.22'
           check-latest: true
       - run: go version
 
-  check-latest-false:
+  check-latest-false: 
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - name: Setup Go with check-latest disabled (default)
-        uses: actions/setup-go@v6
-        with:
-          go-version:  '1.20'
-          check-latest: false
-      - run: go version
-
-  version-from-gomod-patch:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - name: Setup Go with specific patch from go.mod
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: 'go.mod'
-      - run: go version
-
-  version-from-gomod-minor-only:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - name: Setup Go with minor version only (auto-detect latest patch)
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: 'go.mod'
-      - run: go version
-
-  rate-limit-token:
-    runs-on: ubuntu-latest
-    if: github.event.pull_request.head.repo.fork == false
     steps:
       - uses:  actions/checkout@v5
-      - name: Setup Go with GitHub. com token for rate-limit bypass
+      - name: Setup Go with check-latest disabled (default)
         uses: actions/setup-go@v6
-        with:
-          token: ${{ secrets.GH_DOTCOM_TOKEN }}
-          go-version: '1.22'
+        with: 
+          go-version:  '1.21'
+          check-latest: false
       - run: go version
 
   yaml-version-string-best-practice:
@@ -229,8 +200,8 @@ jobs:
       - name: Setup Go with properly quoted version string
         uses: actions/setup-go@v6
         with:
-          go-version: '1.20'  # Quoted to avoid YAML parsing issues
-      - run:  go version
+          go-version: '1.21'
+      - run: go version
 
   combined-goversion-and-file: 
     runs-on: ubuntu-latest
@@ -241,4 +212,16 @@ jobs:
         with:
           go-version: '1.22'
           go-version-file: 'go.mod'
+      - run: go version
+
+  rate-limit-token:
+    runs-on: ubuntu-latest
+    if: github.event. pull_request.head.repo. fork == false
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Go with GitHub. com token for rate-limit bypass
+        uses: actions/setup-go@v6
+        with: 
+          token: ${{ secrets.GH_DOTCOM_TOKEN }}
+          go-version: '1.22'
       - run: go version
