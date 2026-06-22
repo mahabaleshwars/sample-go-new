@@ -1,0 +1,51 @@
+name: Test setup-go cache fix (#756)
+
+on:
+  workflow_dispatch:
+  
+jobs:
+  # Pre-1.10 versions: caching must be SKIPPED silently (no warnings)
+  old-go-versions:
+    name: Go ${{ matrix.go }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        go: ['1.5.4', '1.9', '1.9.7']
+    steps:
+      - uses: actions/checkout@v6
+
+      # Use the local action from this branch
+      - name: Setup Go ${{ matrix.go }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+
+      - name: Verify Go is on PATH
+        run: go version
+
+  # Supported versions: caching must still WORK as before
+  supported-go-versions:
+    name: Go ${{ matrix.go }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        go: ['1.10', '1.14', ]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go ${{ matrix.go }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+
+      - name: Verify cache env is available
+        run: |
+          go version
+          go env GOCACHE
+          go env GOMODCACHE
